@@ -1,0 +1,82 @@
+===================================
+        Authentication
+===================================
+# Next Step: Implement contract.rs
+
+The most logical next step is to implement the `contract.rs` file, which contains the core logic of your smart contract.
+
+Here's the recommended development sequence:
+
+1. **contract.rs** ← We are here
+   - Implement the instantiate function
+   - Implement execute message handlers for user registration
+   - Implement query handlers for user lookups
+
+2. **error.rs** (after contract.rs)
+   - Define custom error types for the contract
+
+3. **lib.rs** (after error.rs)
+   - Export all modules and register entry points
+
+4. **Unit tests** (alongside development)
+   - Test each function in isolation
+
+5. **Integration tests** (after basic functionality works)
+   - Test the contract as a whole
+   - Mock the Burnt wallet integration
+
+Let me know if you'd like me to provide the implementation for `contract.rs` now, or if you prefer to tackle this in a different order.
+
+
+========================================================
+
+
+Missing Components
+CV Request Verification and Hash Signature Generation
+
+There's no function to verify CV requests and generate a signed token/hash
+No event emission for approved CV requests
+JWT Verification
+
+The JWT verification functionality is commented out (execute_verify_jwt)
+You need proper cryptographic verification between frontend and backend
+Monthly Reset Mechanism for Free Tier
+
+The free tier is set up but doesn't enforce the "2 requests monthly" limit
+No time-based tracking for monthly usage reset
+Hash-Based CV Verification Workflow
+
+Missing the flow where a hash is generated, verified, and used for backend authorization
+Here's what I would add to implement your requirements:
+
+
+missing_components.rs
+// 1. Add to ExecuteMsg enum:
+ExecuteMsg::RequestCvGeneration {} => execute_request_cv_generation(deps, env, info),
+ExecuteMsg::VerifyHash { user_address, hash_signature } => execute_verify_hash(deps, env, info, user_address, hash_signature),
+
+// 2. Implement CV request verification and hash generation
+Additional Configuration Needed:
+UserSubscription Struct:
+
+Add last_reset_time field to track when monthly counters reset
+JWT Implementation:
+
+Uncomment and properly implement the JWT verification
+Config Updates:
+
+Add a backend integration address to the config
+Error Handling:
+
+Add specific errors for the CV generation flow
+State Management:
+
+Add PENDING_CV_REQUESTS Map to track request hashes
+The workflow I've implemented follows your outline:
+
+User is registered with Abstraxion and placed in free tier with 2 monthly requests
+When making a CV request, frontend calls RequestCvGeneration
+Contract checks tier and limits, generates a hash signature and emits an event
+Backend uses VerifyHash to validate the request using JWT+address
+If valid, contract records usage and authorizes CV generation
+This implementation adds the missing pieces to create the secure verification flow you described.

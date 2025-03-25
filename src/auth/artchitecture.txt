@@ -1,0 +1,219 @@
+
+Integration Architecture
+┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
+│  User's     │     │ Account           │     │ Your Smart   │
+│  Browser    │─────│ Abstraction       │─────│ Contract     │
+└─────────────┘     │ Service (Burnt)   │     └──────────────┘
+                    └──────────────────┘
+
+
+User Wallet → Smart Contract → Appropriate Treasury Level
+
+Automatic User Movement
+┌───────────┐     ┌───────────┐     ┌───────────┐
+│           │     │           │     │           │
+│   Free    │────▶│   5k      │────▶│  10k      │
+│ Treasury  │     │ Treasury  │     │ Treasury  │
+│           │     │           │     │           │
+└───────────┘     └───────────┘     └───────────┘
+      ▲                                   │
+      └───────────────────────────────────┘
+
+
+
+==============================
+# CV Generator Smart Contract Analysis
+
+Based on the code you shared, I can provide an analysis of what this contract is designed to do:
+
+## Primary Purpose
+
+This is a CosmWasm smart contract for a **CV/Resume Generation and Management Platform** with built-in payment processing and verification capabilities. It appears to be targeting primarily the Nigerian market (given the Naira integration via PayStack) while also supporting global crypto payments.
+
+## Key Features
+
+### 1. CV/Resume Generation System
+- Users can create professional CVs with structured sections:
+  - Personal information
+  - Education history (with verification)
+  - Work experience (with verification)
+  - Skills
+  - Certifications (with verification)
+- Supports versioning with history (for paid users)
+- Public/private visibility options
+
+### 2. Tiered Credit-Based Payment Model
+- Free tier: Basic CV creation (can't edit or save history)
+- Basic tier: 1 CV for 1,500 currency units
+- Standard tier: 5 CVs for 5,000 currency units
+- Premium tier: 15 CVs for 10,000 currency units
+- Different permissions per tier (editing ability, version history)
+
+### 3. Multi-Currency Payment Processing
+- Native blockchain tokens
+- Nigerian Naira (via PayStack integration)
+- Bank transfers (with manual admin verification)
+- Integration with Burnt wallet for user management
+
+### 4. Credential Verification System
+- Third-party verifiers can validate education and experience claims
+- Integration with Credily verification service
+- Blockchain-based verification records provide tamper-proof credentials
+
+### 5. User Account Management
+- Email-based registration linked to blockchain wallet
+- Profile management and usage tracking
+- Payment history and credit balance management
+
+### 6. Comprehensive Analytics
+- Detailed usage statistics (CVs generated, active users)
+- Revenue tracking across payment methods
+- Package popularity metrics
+
+## Target Market & Use Case
+
+This appears to be a commercial CV/resume generation service that leverages blockchain technology to provide:
+
+1. A user-friendly way to create professional CVs
+2. Verifiable credentials that can be trusted by employers
+3. Multiple payment options for the Nigerian market
+4. Different service tiers based on user needs
+
+The system uses smart contracts to ensure transparent credit management, tamper-proof verification, and secure payment processing.
+==================================
+
+
+
+===============
+
+# CV Generator Application: Required Components & Implementation Plan
+
+Based on the code we've seen so far, here's what needs to be done to complete the application and make it fully functional:
+
+## 1. Smart Contract Implementation
+
+### Required Files:
+- ✅ **state.rs**: Already defined (data structures and storage)
+- ✅ **msg.rs**: Already defined (message handling)
+- ❌ **contract.rs**: Needs implementation (core logic)
+- ❌ **error.rs**: Needs implementation (error handling)
+- ❌ **lib.rs**: Needs implementation (module exports)
+
+### Core Functions Needed in contract.rs:
+- Instantiate function (contract initialization)
+- Admin functions for managing packages and verifiers
+- User registration and authentication
+- Payment processing for all three methods
+- CV creation, editing, and history management
+- Verification request handling
+
+## 2. Frontend Components
+
+- **User Registration & Authentication**:
+  - Email verification system
+  - Wallet connection via Burnt wallet integration
+  
+- **Payment Processing**:
+  - PayStack integration for Naira payments
+  - Crypto wallet integration
+  - Bank transfer confirmation workflow
+  
+- **CV Generator Interface**:
+  - Form-based CV creation
+  - Template selection
+  - Preview functionality
+  - Edit history viewer (for paid tiers)
+  
+- **Admin Dashboard**:
+  - Package management
+  - User management
+  - Payment verification
+  - Statistics and analytics
+
+## 3. Backend Services
+
+- **Email Service**:
+  - Verification emails
+  - Notifications
+  
+- **Payment Webhooks**:
+  - PayStack webhook handler
+  - Payment confirmation system
+  
+- **Blockchain Indexer**:
+  - Track contract events
+  - Update off-chain database for faster queries
+  
+- **Storage System**:
+  - CV template storage
+  - PDF generation service
+
+## 4. Integration Points
+
+- **Burnt Wallet API**: For wallet creation and management
+- **PayStack API**: For Naira payment processing
+- **Credily API**: For credential verification
+- **Blockchain RPC Nodes**: For contract interaction
+
+## 5. Development & Deployment Workflow
+
+1. Complete the contract implementation
+2. Test contract locally with automated tests
+3. Deploy to testnet for integration testing
+4. Set up backend services
+5. Implement frontend components
+6. Integration testing with all payment methods
+7. Security audit
+8. Deploy to mainnet
+9. Monitoring and maintenance
+
+Would you like me to focus on any particular area of this implementation plan? For example, I could provide the implementation for the missing contract.rs file, or detail the payment flow integration between PayStack and the smart contract.
+
+
+
+===========================
+
+
+
+
+
+Implementation Approach
+Deploy the Treasury Contract using the Developer Portal:
+
+Configure basic allowance for gas fees
+Set up authorization for executing your subscription contract
+Update Your Subscription Contract:
+
+Add verification for checking if requests come through the treasury
+Keep your tier management logic (Free: 2/month, etc.)
+Add the hash verification system mentioned earlier
+
+
+frontend 
+// Example of frontend integration with treasury
+import { AbstraxionProvider } from "@burnt-labs/abstraxion";
+
+function App() {
+  return (
+    <AbstraxionProvider 
+      config={{
+        treasuryContractAddress: "your-treasury-contract-address"
+      }}
+    >
+      {/* Your application */}
+    </AbstraxionProvider>
+  );
+}
+
+Transaction Execution:
+
+
+
+// When executing a transaction through treasury
+signAndBroadcast({
+  // ...transaction details
+  fee: {
+    // ...fee details
+    granter: treasuryContractAddress // This makes it gasless
+  }
+});
