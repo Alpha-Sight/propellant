@@ -80,3 +80,282 @@ Contract checks tier and limits, generates a hash signature and emits an event
 Backend uses VerifyHash to validate the request using JWT+address
 If valid, contract records usage and authorizes CV generation
 This implementation adds the missing pieces to create the secure verification flow you described.
+
+
+
+=========================
+
+
+frontend for the private key stuff.
+
+==========================
+
+
+import { ed25519 } from '@noble/curves/ed25519';
+import { sha256 } from '@noble/hashes/sha256';
+import { base64 } from '@noble/ciphers/utils';
+
+// Generate a key pair for a new user (should be done at registration)
+async function generateKeyPair() {
+  // Generate a random private key
+  const privateKey = ed25519.utils.randomPrivateKey();
+  // Derive public key from private key
+  const publicKey = ed25519.getPublicKey(privateKey);
+  
+  return {
+    privateKey: Buffer.from(privateKey).toString('hex'),
+    publicKey: Buffer.from(publicKey).toString('base64')
+  };
+}
+
+// Securely store keys - use browser's secure storage or encrypted local storage
+function securelyStoreKeys(privateKey, publicKey, userPassword) {
+  // Encrypt private key with user's password before storing
+  // This is a simplified example - use a proper encryption library in production
+  const encryptedPrivateKey = encryptWithPassword(privateKey, userPassword);
+  
+  // Store the encrypted private key and public key
+  localStorage.setItem('publicKey', publicKey);
+  localStorage.setItem('encryptedPrivateKey', encryptedPrivateKey);
+  
+  // Also consider secure browser storage options:
+  // - WebCrypto API for key storage
+  // - Secure element access via Web Authentication API
+}
+
+// Sign a message with user's private key
+async function signMessage(message, privateKeyHex) {
+  // Convert hex private key to Uint8Array
+  const privateKey = Uint8Array.from(Buffer.from(privateKeyHex, 'hex'));
+  
+  // Hash the message for consistency
+  const messageHash = sha256(message);
+  
+  // Sign the message hash
+  const signature = ed25519.sign(messageHash, privateKey);
+  
+  // Return signature as hex
+  return Buffer.from(signature).toString('hex');
+}
+
+// Request CV generation
+async function requestCvGeneration(userAddress, privateKeyHex) {
+  // Current timestamp
+  const timestamp = Math.floor(Date.now() / 1000);
+  
+  // Create message to sign (address + timestamp)
+  const message = `${userAddress}${timestamp}`;
+  
+  // Sign the message
+  const signature = await signMessage(message, privateKeyHex);
+  
+  // Send the request to the contract
+  const response = await contractClient.execute(
+    'record_cv_generation',
+    {
+      user_address: userAddress,
+      signature: signature
+    }
+  );
+  
+  // Extract session token from response
+  const events = response.events || [];
+  const cvRequestEvent = events.find(e => e.type === 'cv_request');
+  const token = cvRequestEvent?.attributes.find(a => a.key === 'token')?.value;
+  
+  return token;
+}
+
+// Confirm CV generation with backend
+async function confirmCvWithBackend(userAddress, sessionToken, privateKeyHex) {
+  // Create message to sign (address + session token)
+  const message = `${userAddress}${sessionToken}`;
+  
+  // Sign the message
+  const signature = await signMessage(message, privateKeyHex);
+  
+  // Request CV generation from backend
+  const response = await fetch('/api/generate-cv', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      userAddress,
+      signature,
+      sessionToken
+    })
+  });
+  
+  // Process response
+  if (response.ok) {
+    // Once backend confirms success, deduct credit on the contract
+    await contractClient.execute(
+      'deduct_cv_credit',
+      {
+        user_address: userAddress,
+        signature: signature
+      }
+    );
+    
+    return await response.json();
+  } else {
+    throw new Error('Backend CV generation failed');
+  }
+}
+
+
+
+==========================
+
+backend 
+
+=====================
+
+
+import { CosmWasmClient } from 'cosmwasm';
+import { verify } from 'ed25519';
+import { createHash } from 'crypto';
+
+// Setup connection to blockchain
+const client = await CosmWasmClient.connect('https://xion-rpc.example.com');
+const contractAddress = 'xion1...'; // Your contract address
+
+// Handle CV generation request
+async function handleCvGenerationRequest(req, res) {
+  try {
+    const { userAddress, signature, sessionToken } = req.body;
+    
+    // 1. Listen for events from the contract
+    const events = await client.searchTx({
+      tags: [
+        { key: 'action', value: 'record_cv_generation' },
+        { key: 'user', value: userAddress }
+      ]
+    });
+    
+    // Find the most recent event with matching token
+    const relevantEvent = events
+      .sort((a, b) => b.height - a.height)
+      .find(event => {
+        const cvRequestEvent = event.logs.flatMap(log => 
+          log.events.filter(e => e.type === 'cv_request')
+        )[0];
+        
+        if (!cvRequestEvent) return false;
+        
+        const tokenAttr = cvRequestEvent.attributes.find(a => a.key === 'token');
+        return tokenAttr && tokenAttr.value === sessionToken;
+      });
+    
+    if (!relevantEvent) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    
+    // 2. Verify the signature
+    // Get user data from contract
+    const { user } = await client.queryContractSmart(contractAddress, {
+      get_user: { address: userAddress }
+    });
+    
+    if (!user || !user.public_key) {
+      return res.status(404).json({ error: 'User not found or no public key' });
+    }
+    
+    // Verify signature
+    const publicKeyBytes = Buffer.from(user.public_key, 'base64');
+    const messageBytes = Buffer.from(`${userAddress}${sessionToken}`);
+    const signatureBytes = Buffer.from(signature, 'hex');
+    
+    const isValid = verify(
+      createHash('sha256').update(messageBytes).digest(),
+      signatureBytes,
+      publicKeyBytes
+    );
+    
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+    
+    // 3. Generate CV (your business logic here)
+    const cvData = generateCV(userAddress);
+    
+    // 4. Return the CV data
+    return res.status(200).json({ 
+      success: true, 
+      cv: cvData,
+      message: 'CV generated successfully'
+    });
+    
+  } catch (error) {
+    console.error('CV Generation error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// Your CV generation logic
+function generateCV(userAddress) {
+  // Implement your CV generation logic here
+  // This would connect to your CV generation service
+  
+  return {
+    id: crypto.randomUUID(),
+    userAddress,
+    generatedAt: new Date().toISOString(),
+    downloadUrl: '/api/download-cv/123456'
+  };
+}
+
+
+
+
+Key Security Recommendations
+For securely storing and handling the key pairs:
+
+Frontend Key Storage:
+
+Never store private keys in plain text
+Use the WebCrypto API for secure key operations
+Encrypt the private key with a user password before storing
+Consider hardware wallet integration for enhanced security
+Key Generation:
+
+Use secure cryptographic libraries for key generation
+Consider generating keys directly in a secure enclave where available
+Implement proper entropy collection for stronger keys
+Private Key Protection:
+
+Encrypt private keys before storing them
+Use a secure storage like browser's IndexedDB with additional encryption
+Clear private keys from memory after use
+Consider biometric authentication to unlock stored keys
+Alternatives to Consider:
+
+Web Authentication API (WebAuthn) for hardware security
+Integration with existing wallet providers like Keplr or Leap
+Multi-factor authentication in addition to key-based auth
+Complete Authentication Flow
+Registration:
+
+User creates an account
+Frontend generates a key pair and registers the public key with the contract
+Private key is encrypted and stored securely on the user's device
+CV Request:
+
+User wants to create a CV
+Frontend signs a message containing the user's address and timestamp
+Frontend sends signed request to the contract
+Contract verifies signature and generates a session token
+Contract emits an event with the token
+Backend Processing:
+
+Frontend sends another signed request to the backend with the token
+Backend verifies the token against contract events
+Backend verifies the signature using user's public key
+If valid, backend processes the CV generation
+Backend sends back the CV data
+Contract Update:
+
+Frontend sends a final signed request to update user's credit count
+Contract verifies this request and updates the user's record
+This implementation provides strong security while maintaining a smooth user experience.

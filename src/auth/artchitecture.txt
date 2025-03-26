@@ -217,3 +217,34 @@ signAndBroadcast({
     granter: treasuryContractAddress // This makes it gasless
   }
 });
+
+
+
+
+
+1. Contract Instantiation
+instantiate - Test basic contract setup with default configuration
+2. Configuration and Admin Functions
+query_config - Verify config can be retrieved
+execute_update_config - Test admin authorization and config changes
+query_tier_config / query_all_tier_configs - Verify tier configurations
+execute_configure_tier - Test tier property updates and validation
+3. User Registration and Basic Management
+execute_register_user - Test basic user creation, email validation, public key verification
+query_user / query_user_by_email - Test user retrieval methods
+query_total_users - Test user count increments correctly
+execute_update_last_login - Test basic timestamp updates
+execute_update_profile - Test profile modification and email verification
+execute_update_public_key - Test key management and signature verification
+4. Subscription Management
+execute_subscribe - Test upgrading to paid tiers with payment verification
+query_user_subscription - Test subscription state and limits
+execute_link_user_to_treasury - Test treasury linking functionality
+5. CV Generation Flow (most complex interactions)
+execute_record_cv_generation - Test token generation and authorization
+execute_deduct_cv_credit - Test credit deduction and limit enforcement
+Monthly reset functionality - Test credit resets on the 1st of the month
+6. Integration Tests
+Complete user journeys (register → subscribe → generate CVs)
+Error conditions and edge cases
+Security validations (unauthorized access attempts)

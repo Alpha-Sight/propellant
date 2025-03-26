@@ -50,6 +50,8 @@ pub enum ExecuteMsg {
     RegisterUser {
         email: String,
         name: Option<String>,
+        public_key: String, // Base64 encoded public key
+        signature: String,
         // Wallet address comes from msg.sender
     },
     
@@ -60,6 +62,12 @@ pub enum ExecuteMsg {
     UpdateUserProfile {
         name: Option<String>,
         email: Option<String>,
+    },
+
+    // Add message to update public key
+    UpdatePublicKey { 
+        public_key: String, 
+        signature: String, // Signed with old key for verification
     },
     
     //-------------------------------
@@ -79,6 +87,7 @@ pub enum ExecuteMsg {
     /// Record a CV generation
     RecordCvGeneration {
         user_address: String,
+        signature: String,
     },
     DeductCvCredit { user_address: String, signature: String },
 }
