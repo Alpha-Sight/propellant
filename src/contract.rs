@@ -1,7 +1,5 @@
-
-use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
 use cosmwasm_std::{
-    entry_point, to_json_binary, Addr, Attribute, BankMsg, Binary, Coin, Deps, DepsMut, Env, Event, MessageInfo, Response, StdError, StdResult, Uint128
+    entry_point, to_json_binary, BankMsg, Binary, Coin, Deps, DepsMut, Env, Event, MessageInfo, Response, StdError, StdResult, Uint128
 };
 
 use crate::crypto::{generate_encrypted_secure_token, verify_signature, decrypt_and_verify_secure_token};
@@ -10,7 +8,7 @@ use sha2::{Sha256, Digest};
 
 // use crate::auth::jwt::verify;
 use crate::error::ContractError;
-use cw2::{get_contract_version, set_contract_version};
+use cw2::set_contract_version;
 // use sha2::{Sha256, Digest};
 use crate::helpers::{check_global_reset, check_payment, create_log_entry, is_valid_email};
 use crate::msg::{
@@ -940,108 +938,461 @@ pub fn query_all_tier_configs(deps: Deps) -> StdResult<AllTierConfigsResponse> {
 
     Ok(AllTierConfigsResponse { configs })
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage};
+    use cosmwasm_std::{Addr, Attribute, OwnedDeps, Uint128};
+    use cw2::get_contract_version;
 
-#[test]
-fn proper_initialization() {
-    // Create mock dependencies, environment and info
-    let mut deps = mock_dependencies();
-    let env = mock_env();
-    let sender = "creator";
-    let info = message_info(&Addr::unchecked(sender), &vec![]);
-    
-    // Define test values for initialize message
-    let admin = Some("admin".to_string());
-    let burnt_wallet_api_key = "test_api_key".to_string();
-    let treasury_admin = Some("treasury_admin".to_string());
-    
-    // Create initialize message
-    let msg = InstantiateMsg {
-        admin,
-        burnt_wallet_api_key: burnt_wallet_api_key.clone(),
-        treasury_admin,
-    };
-    
-    // Execute initialization
-    let response = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
-    
-    // Verify response attributes
-    assert_eq!(
-        response.attributes,
-        vec![
-            Attribute::new("action", "instantiate"),
-            // These attributes come from create_log_entry
-            Attribute::new("timestamp", env.block.time.seconds().to_string()),
-            Attribute::new("block_height", env.block.height.to_string()),
-            Attribute::new("by", "admin"),
-        ]
-    );
-    
-    // Verify contract version was set
-    let version = get_contract_version(&deps.storage).unwrap();
-    assert_eq!(version.contract, CONTRACT_NAME);
-    assert_eq!(version.version, CONTRACT_VERSION);
-    
-    // Verify config was stored correctly
-    let config = CONFIG.load(&deps.storage).unwrap();
-    assert_eq!(*config.admin(), Addr::unchecked("admin"));
-    assert_eq!(*config.burnt_wallet_api_key(), burnt_wallet_api_key);
-    assert_eq!(*config.treasury_admin(), Addr::unchecked("treasury_admin"));
-    
-    // Verify counters were initialized correctly
-    let total_users = TOTAL_USERS.load(&deps.storage).unwrap();
-    assert_eq!(total_users, 0);
-    
-    let total_cvs = TOTAL_CVS.load(&deps.storage).unwrap();
-    assert_eq!(total_cvs, 0);
-    
-    // Verify global reset time was set
-    let last_reset = LAST_GLOBAL_RESET.load(&deps.storage).unwrap();
-    assert_eq!(last_reset, env.block.time.seconds());
-    
-    // Verify Free tier was correctly initialized
-    let free_key = tier_to_key(&SubscriptionTier::Free);
-    let free_tier = TIER_CONFIGS.load(&deps.storage, &free_key).unwrap();
-    assert_eq!(*free_tier.tier(), SubscriptionTier::Free);
-    assert_eq!(free_tier.price(), Uint128::zero());
-    assert_eq!(free_tier.cv_limit(), 2); // 2 free credits per month
-    assert_eq!(*free_tier.treasury_address(), Addr::unchecked("admin"));
-    
-    // Verify other tiers were initialized as placeholders
-    for tier in [
-        SubscriptionTier::Basic,
-        SubscriptionTier::Standard,
-        SubscriptionTier::Premium,
-    ] {
-        let tier_key = tier_to_key(&tier);
-        let tier_config = TIER_CONFIGS.load(&deps.storage, &tier_key).unwrap();
+    #[test]
+    fn proper_initialization() {
+        // Create mock dependencies, environment and info
+        let mut deps = mock_dependencies();
+        let env = mock_env();
+        let sender = Addr::unchecked("xion1creator");
+        let info = message_info(&Addr::unchecked(sender), &vec![]);
         
-        assert_eq!(*tier_config.tier(), tier);
-        assert_eq!(tier_config.price(), Uint128::zero());
-        assert_eq!(tier_config.cv_limit(), 0);
-        assert_eq!(*tier_config.treasury_address(), Addr::unchecked("admin"));
+        // Define test values for initialize message
+        let admin = Some("xion1admin".to_string());
+        let burnt_wallet_api_key = "test_api_key".to_string();
+        let treasury_admin = Some("xion1treasury".to_string());
+        
+        // Create initialize message
+        let msg = InstantiateMsg {
+            admin,
+            burnt_wallet_api_key: burnt_wallet_api_key.clone(),
+            treasury_admin,
+        };
+        
+        // Execute initialization
+        let response = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+        
+        // Verify response attributes
+        assert_eq!(
+            response.attributes,
+            vec![
+                Attribute::new("action", "instantiate"),
+                // These attributes come from create_log_entry
+                Attribute::new("timestamp", env.block.time.seconds().to_string()),
+                Attribute::new("block_height", env.block.height.to_string()),
+                Attribute::new("by", "xion1admin"),
+            ]
+        );
+        
+        // Verify contract version was set
+        let version = get_contract_version(&deps.storage).unwrap();
+        assert_eq!(version.contract, CONTRACT_NAME);
+        assert_eq!(version.version, CONTRACT_VERSION);
+        
+        // Verify config was stored correctly
+        let config = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(*config.admin(), Addr::unchecked("xion1admin"));
+        assert_eq!(*config.burnt_wallet_api_key(), burnt_wallet_api_key);
+        assert_eq!(*config.treasury_admin(), Addr::unchecked("xion1treasury"));
+        
+        // Verify counters were initialized correctly
+        let total_users = TOTAL_USERS.load(&deps.storage).unwrap();
+        assert_eq!(total_users, 0);
+        
+        let total_cvs = TOTAL_CVS.load(&deps.storage).unwrap();
+        assert_eq!(total_cvs, 0);
+        
+        // Verify global reset time was set
+        let last_reset = LAST_GLOBAL_RESET.load(&deps.storage).unwrap();
+        assert_eq!(last_reset, env.block.time.seconds());
+        
+        // Verify Free tier was correctly initialized
+        let free_key = tier_to_key(&SubscriptionTier::Free);
+        let free_tier = TIER_CONFIGS.load(&deps.storage, &free_key).unwrap();
+        assert_eq!(*free_tier.tier(), SubscriptionTier::Free);
+        assert_eq!(free_tier.price(), Uint128::zero());
+        assert_eq!(free_tier.cv_limit(), 2); // 2 free credits per month
+        assert_eq!(*free_tier.treasury_address(), Addr::unchecked("xion1admin"));
+        
+        // Verify other tiers were initialized as placeholders
+        for tier in [
+            SubscriptionTier::Basic,
+            SubscriptionTier::Standard,
+            SubscriptionTier::Premium,
+        ] {
+            let tier_key = tier_to_key(&tier);
+            let tier_config = TIER_CONFIGS.load(&deps.storage, &tier_key).unwrap();
+            
+            assert_eq!(*tier_config.tier(), tier);
+            assert_eq!(tier_config.price(), Uint128::zero());
+            assert_eq!(tier_config.cv_limit(), 0);
+            assert_eq!(*tier_config.treasury_address(), Addr::unchecked("xion1admin"));
+        }
     }
-}
 
-#[test]
-fn initialization_with_sender_as_default_admin() {
-    // Create mock dependencies, environment and info
-    let mut deps = mock_dependencies();
-    let env = mock_env();
-    let sender = "creator";
-    let info = message_info(&Addr::unchecked(sender), &vec![]);
+    #[test]
+    fn initialization_with_sender_as_default_admin() {
+        // Create mock dependencies, environment and info
+        let mut deps = mock_dependencies();
+        let env = mock_env();
+        let sender = "xion1creator";
+        let info = message_info(&Addr::unchecked(sender), &vec![]);
+        
+        // Don't provide explicit admin, let it default to sender
+        let msg = InstantiateMsg {
+            admin: None,
+            burnt_wallet_api_key: "test_api_key".to_string(),
+            treasury_admin: None, // This should default to admin (which is sender)
+        };
+        
+        // Execute initialization
+        instantiate(deps.as_mut(), env, info, msg).unwrap();
+        
+        // Verify sender became both admin and treasury_admin
+        let config = CONFIG.load(&deps.storage).unwrap();
+        assert_eq!(*config.admin(), Addr::unchecked(sender));
+        assert_eq!(*config.treasury_admin(), Addr::unchecked(sender));
+    }
+
+
+    //================================================
+    //Configuration and Admin Functions
+    //================================================
+
+        // Setup helper function to initialize contract for testing
+        fn setup_contract() -> (
+            OwnedDeps<MockStorage, MockApi, MockQuerier>,
+            Env,
+            Addr, // admin address
+        ) {
+            let mut deps = mock_dependencies();
+            let env = mock_env();
+            
+            // Initialize with standard test values
+            let admin = Addr::unchecked("xion1admin");
+            let treasury_admin = Addr::unchecked("xion1treasury");
+            let api_key = "test_api_key".to_string();
+            
+            // Create config directly
+            let config = Config::new(
+                admin.clone(),
+                api_key,
+                treasury_admin,
+            );
+            
+            // Save config
+            CONFIG.save(deps.as_mut().storage, &config).unwrap();
+            
+            // Set up last global reset for testing
+            LAST_GLOBAL_RESET.save(deps.as_mut().storage, &env.block.time.seconds()).unwrap();
+            
+            // Set up free tier as baseline
+            let free_tier = TierConfig::new(
+                SubscriptionTier::Free,
+                Uint128::zero(),
+                2,
+                admin.clone(),
+            );
+            let free_key = tier_to_key(&SubscriptionTier::Free);
+            TIER_CONFIGS.save(deps.as_mut().storage, &free_key, &free_tier).unwrap();
+            
+            (deps, env, admin)
+        }
+        
+        #[test]
+        fn test_query_config() {
+            let (deps, _env, admin) = setup_contract();
+            
+            // Query the config
+            let response = query_config(deps.as_ref()).unwrap();
+            
+            // Verify response matches what we saved
+            assert_eq!(response.admin, admin);
+            assert_eq!(response.burnt_wallet_api_key, "test_api_key");
+            assert_eq!(response.treasury_admin, Addr::unchecked("xion1treasury"));
+        }
+        
+        #[test]
+        fn test_update_config_authorized() {
+            let (mut deps, env, admin) = setup_contract();
+            
+            // Create admin info
+            let info = message_info(&admin, &[]);
+            
+            // Update all config values
+            let new_admin = Some("xion1newadmin".to_string());
+            let new_api_key = Some("updated_api_key".to_string());
+            let new_treasury_admin = Some("xion1newtreasury".to_string());
+            
+            let response = execute_update_config(
+                deps.as_mut(),
+                env.clone(),
+                info,
+                new_admin.clone(),
+                new_api_key.clone(),
+                new_treasury_admin.clone(),
+            ).unwrap();
+            
+            // Verify response
+            assert_eq!(
+                response.attributes,
+                vec![
+                    Attribute::new("action", "update_config"),
+                    // Log entry attributes
+                    Attribute::new("timestamp", env.block.time.seconds().to_string()),
+                    Attribute::new("block_height", env.block.height.to_string()),
+                    Attribute::new("by", admin.to_string()),
+                ]
+            );
+            
+            // Verify config was updated
+            let updated_config = CONFIG.load(&deps.storage).unwrap();
+            assert_eq!(*updated_config.admin(), Addr::unchecked("xion1newadmin"));
+            assert_eq!(*updated_config.burnt_wallet_api_key(), "updated_api_key");
+            assert_eq!(*updated_config.treasury_admin(), Addr::unchecked("xion1newtreasury"));
+        }
+        
+        #[test]
+        fn test_update_config_unauthorized() {
+            let (mut deps, env, _admin) = setup_contract();
+            
+            // Create non-admin info
+            let unauthorized_info = message_info(&Addr::unchecked("xion1unauthorized"), &[]);
+            
+            // Try to update config
+            let result = execute_update_config(
+                deps.as_mut(),
+                env,
+                unauthorized_info,
+                Some("xion1hacker".to_string()),
+                Some("hacked_key".to_string()),
+                Some("xion1hacker".to_string()),
+            );
+            
+            // Verify error
+            assert!(matches!(result, Err(ContractError::Unauthorized {})));
+            
+            // Verify config was not changed
+            let unchanged_config = CONFIG.load(&deps.storage).unwrap();
+            assert_eq!(*unchanged_config.admin(), Addr::unchecked("xion1admin"));
+            assert_eq!(*unchanged_config.burnt_wallet_api_key(), "test_api_key");
+            assert_eq!(*unchanged_config.treasury_admin(), Addr::unchecked("xion1treasury"));
+        }
+        
+        #[test]
+        fn test_update_config_partial() {
+            let (mut deps, env, admin) = setup_contract();
+            
+            // Create admin info
+            let info = message_info(&admin, &[]);
+            
+            // Update only API key
+            let response = execute_update_config(
+                deps.as_mut(),
+                env.clone(),
+                info,
+                None,
+                Some("partial_update_key".to_string()),
+                None,
+            ).unwrap();
+            
+            // Verify basic response
+            assert_eq!(response.attributes[0], Attribute::new("action", "update_config"));
+            
+            // Verify partial update
+            let updated_config = CONFIG.load(&deps.storage).unwrap();
+            assert_eq!(*updated_config.admin(), Addr::unchecked("xion1admin")); // Unchanged
+            assert_eq!(*updated_config.burnt_wallet_api_key(), "partial_update_key"); // Changed
+            assert_eq!(*updated_config.treasury_admin(), Addr::unchecked("xion1treasury")); // Unchanged
+        }
+        
+        #[test]
+        fn test_query_tier_config() {
+            let (mut deps, _env, admin) = setup_contract();
+            
+            // Set up a test tier
+            let standard_tier = TierConfig::new(
+                SubscriptionTier::Standard,
+                Uint128::new(5000),
+                10,
+                admin.clone(),
+            );
+            let tier_key = tier_to_key(&SubscriptionTier::Standard);
+            TIER_CONFIGS.save(deps.as_mut().storage, &tier_key, &standard_tier).unwrap();
+            
+            // Query the tier
+            let response = query_tier_config(deps.as_ref(), SubscriptionTier::Standard).unwrap();
+            
+            // Verify tier config
+            assert_eq!(*response.config.tier(), SubscriptionTier::Standard);
+            assert_eq!(response.config.price(), Uint128::new(5000));
+            assert_eq!(response.config.cv_limit(), 10);
+            assert_eq!(*response.config.treasury_address(), admin);
+        }
+        
+        #[test]
+        fn test_configure_tier_authorized() {
+            let (mut deps, env, admin) = setup_contract();
+            
+            // Create admin info
+            let info = message_info(&admin, &[]);
+            
+            // Configure the Basic tier
+            let tier = SubscriptionTier::Basic;
+            let price = Uint128::new(1500);
+            let cv_limit = 5;
+            let treasury_address = "xion1treasury".to_string();
+            
+            let response = execute_configure_tier(
+                deps.as_mut(),
+                env.clone(),
+                info,
+                tier.clone(),
+                price,
+                cv_limit,
+                treasury_address.clone(),
+            ).unwrap();
+            
+            // Verify event in response
+            let expected_event = Event::new("tier_configured")
+                .add_attribute("tier", format!("{:?}", tier))
+                .add_attribute("price", price.to_string())
+                .add_attribute("cv_limit", cv_limit.to_string())
+                .add_attribute("treasury", "xion1treasury")
+                .add_attribute("admin", admin.to_string())
+                .add_attribute("timestamp", env.block.time.seconds().to_string());
+            
+            assert_eq!(response.events[0], expected_event);
+            
+            // Verify tier was saved
+            let tier_key = tier_to_key(&tier);
+            let saved_tier = TIER_CONFIGS.load(&deps.storage, &tier_key).unwrap();
+            
+            assert_eq!(*saved_tier.tier(), tier);
+            assert_eq!(saved_tier.price(), price);
+            assert_eq!(saved_tier.cv_limit(), cv_limit);
+            assert_eq!(*saved_tier.treasury_address(), Addr::unchecked("xion1treasury"));
+        }
+        
+        #[test]
+        fn test_configure_tier_unauthorized() {
+            let (mut deps, env, _admin) = setup_contract();
+            
+            // Create non-admin info
+            let unauthorized_info = message_info(&Addr::unchecked("xion1unauthorized"), &[]);
+            
+            // Try to configure a tier
+            let result = execute_configure_tier(
+                deps.as_mut(),
+                env,
+                unauthorized_info,
+                SubscriptionTier::Premium,
+                Uint128::new(10000),
+                15,
+                "xion1treasury".to_string(),
+            );
+            
+            // Verify error
+            assert!(matches!(result, Err(ContractError::Unauthorized {})));
+        }
+        
+        #[test]
+        fn test_configure_tier_validation_limits() {
+            let (mut deps, env, admin) = setup_contract();
+            
+            // Create admin info
+            let info = message_info(&admin, &[]);
+            
+            // 1. Test free tier exceeding limit
+            let result = execute_configure_tier(
+                deps.as_mut(),
+                env.clone(),
+                info.clone(),
+                SubscriptionTier::Free,
+                Uint128::zero(),
+                3, // Free tier limit is 2
+                "xion1treasury".to_string(),
+            );
+            
+            // Verify error
+            match result {
+                Err(ContractError::Std(StdError::GenericErr { msg, .. })) => {
+                    assert_eq!(msg, "Free tier CV limit cannot exceed 2");
+                }
+                _ => panic!("Expected GenericErr for Free tier limit"),
+            }
+            
+            // 2. Test paid tier exceeding limit
+            let result = execute_configure_tier(
+                deps.as_mut(),
+                env,
+                info,
+                SubscriptionTier::Premium,
+                Uint128::new(10000),
+                1001, // Paid tier limit is 1000
+                "xion1treasury".to_string(),
+            );
+            
+            // Verify error
+            match result {
+                Err(ContractError::Std(StdError::GenericErr { msg, .. })) => {
+                    assert_eq!(msg, "Paid tier CV limit cannot exceed 1000");
+                }
+                _ => panic!("Expected GenericErr for paid tier limit"),
+            }
+        }
+        
+        #[test]
+        fn test_query_all_tier_configs() {
+            let (mut deps, _env, admin) = setup_contract();
+            
+            // Setup all tiers
+            let tiers = [
+                (SubscriptionTier::Basic, Uint128::new(1500), 3),
+                (SubscriptionTier::Standard, Uint128::new(5000), 5),
+                (SubscriptionTier::Premium, Uint128::new(10000), 15),
+            ];
+            
+            for (tier, price, cv_limit) in tiers.iter() {
+                let tier_config = TierConfig::new(
+                    tier.clone(),
+                    *price,
+                    *cv_limit,
+                    admin.clone(),
+                );
+                let tier_key = tier_to_key(tier);
+                TIER_CONFIGS.save(deps.as_mut().storage, &tier_key, &tier_config).unwrap();
+            }
+            
+            // Query all tiers
+            let response = query_all_tier_configs(deps.as_ref()).unwrap();
+            
+            // Verify all tiers are returned (4 including Free)
+            assert_eq!(response.configs.len(), 4);
+            
+            // Verify specific tier data
+            for (tier, config) in response.configs.iter() {
+                match tier {
+                    SubscriptionTier::Free => {
+                        assert_eq!(config.price(), Uint128::zero());
+                        assert_eq!(config.cv_limit(), 2);
+                    }
+                    SubscriptionTier::Basic => {
+                        assert_eq!(config.price(), Uint128::new(1500));
+                        assert_eq!(config.cv_limit(), 3);
+                    }
+                    SubscriptionTier::Standard => {
+                        assert_eq!(config.price(), Uint128::new(5000));
+                        assert_eq!(config.cv_limit(), 5);
+                    }
+                    SubscriptionTier::Premium => {
+                        assert_eq!(config.price(), Uint128::new(10000));
+                        assert_eq!(config.cv_limit(), 15);
+                    }
+                }
+            }
+        }
+
+
+    //================================================
+            //Configuration and Admin Functions
+    //================================================
+
     
-    // Don't provide explicit admin, let it default to sender
-    let msg = InstantiateMsg {
-        admin: None,
-        burnt_wallet_api_key: "test_api_key".to_string(),
-        treasury_admin: None, // This should default to admin (which is sender)
-    };
-    
-    // Execute initialization
-    instantiate(deps.as_mut(), env, info, msg).unwrap();
-    
-    // Verify sender became both admin and treasury_admin
-    let config = CONFIG.load(&deps.storage).unwrap();
-    assert_eq!(*config.admin(), Addr::unchecked(sender));
-    assert_eq!(*config.treasury_admin(), Addr::unchecked(sender));
 }
